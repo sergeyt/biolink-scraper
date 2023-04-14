@@ -9,45 +9,39 @@ const TYPE = {
   LINKFREE: "linkfree",
 };
 
+const SELECTORS = {
+  [TYPE.BIOLINK]: "a[href].social-icon-anchor",
+  [TYPE.LINKFREE]: `div[id^="biolink_block"] a[href]`,
+};
+
 export default async function handler(req) {
-  const reqUrl = new URL(req.url);
-  const linkParam = reqUrl.searchParams.get("link");
-  if (!linkParam) {
+  const link = new URL(req.url).searchParams.get("link");
+  if (!link) {
     return Response.json({
       error: `link is not specified`,
     });
   }
-  const { type, url } = validateLink(linkParam);
+  const { type, url } = validateLink(link);
   if (!type) {
     return Response.json({
-      error: `invalid link param`,
+      error: `invalid link param: ${link}`,
     });
   }
   const resp = await fetch(url);
   if (!resp.ok) {
+    // TODO include more details
     return Response.json({
-      error: `failed to fetch ${linkParam}`,
+      error: `failed to fetch "${link}"`,
       status: resp.status,
     });
   }
   const html = await resp.text();
   const $ = load(html);
-  let selector;
-  switch (type) {
-    case TYPE.BIOLINK:
-      selector = "a[href].social-icon-anchor";
-      break;
-    case TYPE.LINKFREE:
-      selector = `div[id^="biolink_block"] a[href]`;
-      break;
-  }
-  const urls = [];
-  $(selector).map((i, e) => {
-    urls.push($(e).attr("href"));
+  const links = [];
+  $(SELECTORS[type]).map((i, e) => {
+    links.push($(e).attr("href"));
   });
-  return Response.json({
-    links: urls,
-  });
+  return Response.json({ links });
 }
 
 function validateLink(link) {
